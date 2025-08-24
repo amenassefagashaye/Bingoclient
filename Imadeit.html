@@ -278,5 +278,25 @@ function submitResult(){
   });
 }
 </script>
+  <script>
+  const expirationMinutes = 5; // change this to your desired minutes
+  const now = new Date().getTime();
+
+  // Check if a timestamp exists
+  const storedTime = localStorage.getItem("bingoExpireTime");
+
+  if(storedTime) {
+    const expireTime = parseInt(storedTime);
+    if(now > expireTime) {
+      // Expired
+      document.getElementById("content").innerHTML = "<h1 style='color:red; font-size:2em;'>This Bingo page has expired.</h1>";
+    }
+  } else {
+    // First time open, set expiration time
+    const expireTime = now + expirationMinutes * 60 * 1000; // minutes → milliseconds
+    localStorage.setItem("bingoExpireTime", expireTime);
+  }
+</script>
 </body>
 </html>
+
