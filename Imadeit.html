@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bingo Game</title>
+<style>
+body {
+  background: blue;
+  color: white;
+  font-family: 'Times New Roman', Times, serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+}
+.container {
+  background: blue;
+  border-radius: 15px;
+  padding: 20px;
+  width: 100%;
+  max-width: 600px;
+  min-height: 67vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.page { display: none; flex-grow: 1; text-align:center; }
+.active { display: block; }
+
+form, .summary-form { display: flex; flex-direction: column; gap: 10px; }
+input, select, button { padding: 10px; border: 2px solid black; border-radius: 4px; font-size: 1.2em; }
+button { background: white; color: blue; font-weight: bold; cursor: pointer; transition: 0.3s; }
+button:hover { background: gold; transform: scale(1.05); }
+
+.column-labels, .bingo-board { display: grid; grid-template-columns: repeat(5, 1fr); margin: 10px 0; gap: 5px; border-radius: 10px; padding: 5px; background: blue; }
+.bingo-board div, .column-labels div { background: white; color: black; text-align: center; padding: 10px; font-weight: bold; border: 2px solid black; border-radius: 5px; font-size: 1.2em; user-select: none; }
+.bingo-board div.active { background: red; color: white; }
+.bingo-board div.free { background: red; color: white; font-size: 1.4em; }
+.bingo-board div.win { background: green; color: white; }
+
+.controls, .controls-summary { display: flex; gap: 10px; margin: 10px 0; justify-content: center; flex-wrap: wrap; }
+.controls button, .controls-summary button { flex: 1 1 30%; min-width: 100px; font-size: 1em; border: 2px solid black; }
+
+#calledNumber {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 1.5em;
+  font-weight: bold;
+  background: yellow;
+  color: black;
+  border-radius: 10px;
+  width: 100%;
+  height: 45px;
+  line-height: 40px;
+  border: 2px solid black;
+}
+
+.summary-form { border: 2px solid white; border-radius: 10px; padding: 10px; background: blue; }
+.summary-form label { color: white; font-weight: bold; }
+.summary-form input { background: white; color: black; border: 2px solid black; }
+
+@media (max-width: 600px) {
+  body { padding: 10px; }
+  .container { padding: 15px; max-width: 100%; }
+  form input, form select, form button { font-size: 1em; padding: 8px; }
+  .bingo-board div { font-size: 1em; }
+  .controls button { font-size: 1em; min-width: 80px; }
+  .bingo-board { gap: 3px; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <!-- Page 0: Welcome -->
+  <div class="page active" id="page0">
+    <h1>Welcome to Assefa Gashaye's Bingo Game, 2025</h1>
+    <h2>እንኳን ወደ አሰፋ ጋሻዬ ቢንጎ ጨዋታ በደህና መጡ, 2017</h2>
+    <button onclick="showPage(1)">Continue ▶️</button>
+  </div>
+
+  <!-- Page 1: Registration -->
+  <div class="page" id="page1">
+    <form>
+      <label>Name</label>
+      <input type="text" id="playerName" placeholder="Enter your name" oninput="generateId()">
+      <label>Phone</label>
+      <input type="text" id="playerPhone" placeholder="Enter your phone number">
+      <label>Payment</label>
+      <select id="playerPayment">
+        <option value="">Select Payment</option>
+        <option value="25">25 ETB</option>
+        <option value="50">50 ETB</option>
+        <option value="100">100 ETB</option>
+      </select>
+      <label>Select Board (1 to 100)</label>
+      <select id="boardSelect"></select>
+      <label>ID</label>
+      <input type="text" id="generatedId" readonly>
+      <button type="button" onclick="startGame()">▶️ Start</button>
+    </form>
+  </div>
+
+  <!-- Page 2: Game -->
+  <div class="page" id="page2">
+    <div class="column-labels">
+      <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
+    </div>
+    <div class="bingo-board" id="bingoBoard"></div>
+    <div class="controls">
+      <button onclick="prevPage()">🔙</button>
+      <button onclick="goToSummary()">➡️ Summary</button>
+    </div>
+    <div id="calledNumber">Assefa Gashaye</div>
+  </div>
+
+  <!-- Page 3: Summary -->
+  <div class="page" id="page3">
+    <div class="summary-form">
+      <input type="text" id="summaryName" readonly>
+      <label>Current ETB</label>
+      <input type="text" id="currentETB" readonly>
+      <label>Total ETB</label>
+      <input type="text" id="totalETB" readonly>
+      <label>CBE Account #</label>
+      <input type="text" id="cbeAccount" value="1000247293281">
+      <label>Withdraw Amount</label>
+      <input type="number" id="withdrawAmount" placeholder="Enter Amount to Withdraw" readonly>
+    </div>
+    <div class="controls-summary">
+      <button onclick="showPage(2)">🔙</button>
+      <button id="withdrawBtn" onclick="submitResult()" disabled>✅ Withdraw</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const boardSelect=document.getElementById('boardSelect');
+for(let i=1;i<=100;i++){
+  const option=document.createElement('option');
+  option.value=i;
+  option.textContent=`Board ${i}`;
+  boardSelect.appendChild(option);
+}
+
+let bingoBoard=[];
+let totalETB=0;
+let winner="";
+
+function showPage(n){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page'+n).classList.add('active');
+}
+
+function generateId(){
+  const name=document.getElementById('playerName').value.trim();
+  let initials=name.split(' ').map(n=>n[0]).join('').toUpperCase();
+  if(initials.length<2) initials+='X';
+  document.getElementById('generatedId').value=initials+Math.floor(Math.random()*9000+1000);
+}
+
+function startGame(){
+  const name=document.getElementById('playerName').value.trim();
+  const phone=document.getElementById('playerPhone').value.trim();
+  const payment=document.getElementById('playerPayment').value;
+  const board=document.getElementById('boardSelect').value;
+  if(!name || !phone || !payment || !board){
+    alert("❌ Please fill in all fields!");
+    return;
+  }
+  generateId();
+  generateBoard();
+  fillSummary();
+  showPage(2);
+}
+
+function prevPage(){
+  document.getElementById('calledNumber').textContent="Assefa Gashaye";
+  showPage(1);
+}
+
+function goToSummary(){ showPage(3); }
+
+function fillSummary(){
+  const current=Number(document.getElementById('playerPayment').value);
+  totalETB=current;
+  document.getElementById('summaryName').value=document.getElementById('playerName').value;
+  document.getElementById('currentETB').value=current;
+  document.getElementById('totalETB').value=totalETB;
+  document.getElementById('withdrawAmount').value="";
+}
+
+function generateBoard(){
+  const board=document.getElementById('bingoBoard');
+  board.innerHTML='';
+  bingoBoard=[];
+  const ranges={B:[1,15], I:[16,30], N:[31,45], G:[46,60], O:[61,75]};
+  const cols=['B','I','N','G','O'];
+  for(let c=0;c<5;c++){
+    let nums=[];
+    const [min,max]=ranges[cols[c]];
+    while(nums.length<5){
+      let num=Math.floor(Math.random()*(max-min+1))+min;
+      if(!nums.includes(num)) nums.push(num);
+    }
+    for(let r=0;r<5;r++){
+      const cell=document.createElement('div');
+      if(r===2 && c===2){ 
+        cell.textContent='❤️'; 
+        cell.classList.add('free','active'); 
+      } else { 
+        cell.textContent=nums[r]; 
+      }
+      cell.addEventListener('click', ()=>{
+        cell.classList.toggle('active');
+        checkWin();
+      });
+      board.appendChild(cell);
+      bingoBoard.push(cell);
+    }
+  }
+}
+
+function checkWin(){
+  const s=5; let b2D=[];
+  for(let i=0;i<s;i++) b2D[i]=bingoBoard.slice(i*s,i*s+s);
+  for(let r=0;r<s;r++) if(b2D[r].every(c=>c.classList.contains('active'))) return win(b2D[r]);
+  for(let c=0;c<s;c++) if(b2D.every(r=>r[c].classList.contains('active'))) return win(b2D.map(r=>r[c]));
+  let d1=[],d2=[]; for(let i=0;i<s;i++){ d1.push(b2D[i][i]); d2.push(b2D[i][s-1-i]); }
+  if(d1.every(c=>c.classList.contains('active'))) return win(d1);
+  if(d2.every(c=>c.classList.contains('active'))) return win(d2);
+}
+
+function win(cells){
+  cells.forEach(cell=>cell.classList.add('win'));
+  winner="Yes";
+  alert(`🎉 Congratulations! You have Bingo! 🎉`);
+  fillSummary();
+  // Enable withdraw with only the winning amount
+  const payment=Number(document.getElementById('playerPayment').value);
+  document.getElementById('withdrawAmount').value=payment;
+  document.getElementById('withdrawBtn').disabled=false;
+}
+
+function submitResult(){
+  const data={
+    name:document.getElementById('summaryName').value.trim(),
+    phone:document.getElementById('playerPhone').value.trim(),
+    payment:document.getElementById('playerPayment').value,
+    board:document.getElementById('boardSelect').value,
+    generatedId:document.getElementById('generatedId').value,
+    currentETB:document.getElementById('currentETB').value,
+    totalETB:document.getElementById('totalETB').value,
+    cbeAccount:document.getElementById('cbeAccount').value.trim(),
+    withdrawAmount:document.getElementById('withdrawAmount').value.trim(),
+    winner:winner||"No"
+  };
+
+  if(winner!=="Yes"){
+    alert("❌ You can only withdraw if your board is a winner!");
+    return;
+  }
+
+  fetch("YOUR_GOOGLE_SCRIPT_URL_HERE",{
+    method:"POST",
+    body:JSON.stringify(data)
+  })
+  .then(res=>res.text())
+  .then(res=>{
+    alert("✅ Submitted successfully!");
+  })
+  .catch(err=>{
+    alert("❌ Error submitting: "+err);
+  });
+}
+</script>
+</body>
+</html>
